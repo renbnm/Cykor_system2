@@ -57,13 +57,11 @@ int pipeline(char *cmd) {
 
         pid_t pid = fork();
         if (pid == 0) {
-            if (i > 0) {
+            if (i > 0)
                 dup2(fds[i - 1][0], STDIN_FILENO);
-            }
 
-            if (i < count - 1) {
+            if (i < count - 1)
                 dup2(fds[i][1], STDOUT_FILENO);
-            }
 
             for (int j = 0; j < count - 1; j++) {
                 close(fds[j][0]);
@@ -81,9 +79,8 @@ int pipeline(char *cmd) {
         close(fds[i][1]);
     }
 
-    for (int i = 0; i < count; i++) {
+    for (int i = 0; i < count; i++)
         wait(NULL);
-    }
 
     return 0;
 }
