@@ -43,9 +43,9 @@ int pipeline(char *cmd) {
         return 1;
     }
     
-    int pipes[MAX_CMDS][2];
+    int fds[MAX_CMDS][2];
     for (int i = 0; i < count - 1; i++) {
-        if (pipe(pipes[i]) < 0) {
+        if (pipe(fds[i]) < 0) {
             perror("pipe");
             return 1;
         }
@@ -58,16 +58,16 @@ int pipeline(char *cmd) {
         pid_t pid = fork();
         if (pid == 0) {
             if (i > 0) {
-                dup2(pipes[i - 1][0], STDIN_FILENO);
+                dup2(fds[i - 1][0], STDIN_FILENO);
             }
 
             if (i < count - 1) {
-                dup2(pipes[i][1], STDOUT_FILENO);
+                dup2(fds[i][1], STDOUT_FILENO);
             }
 
             for (int j = 0; j < count - 1; j++) {
-                close(pipes[j][0]);
-                close(pipes[j][1]);
+                close(fds[j][0]);
+                close(fds[j][1]);
             }
 
             execvp(args[0], args);
@@ -77,8 +77,8 @@ int pipeline(char *cmd) {
     }
 
     for (int i = 0; i < count - 1; i++) {
-        close(pipes[i][0]);
-        close(pipes[i][1]);
+        close(fds[i][0]);
+        close(fds[i][1]);
     }
 
     for (int i = 0; i < count; i++) {
