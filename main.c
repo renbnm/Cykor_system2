@@ -47,9 +47,8 @@ int pipeline(char *cmd) {
 
     pid_t pid1 = fork();
     if (pid1 == 0){
-        dup2(fd[1], STDOUT_FILENO);
+        dup2(fd[1], STDIN_FILENO);
         close(fd[0]);
-        close(fd[1]);
         execvp(arg1[0], arg1);
         perror("execvp (pipe1)");
         exit(127);
@@ -60,7 +59,6 @@ int pipeline(char *cmd) {
     if (pid2 == 0){
         dup2(fd[0], STDIN_FILENO);
         close(fd[1]);
-        close(fd[0]);
         execvp(arg2[0], arg2);
         perror("execvp (pipe2)");
         exit(127);
@@ -170,21 +168,22 @@ int main() {
             char *command = cmds[i];
             while (*command == ' ') command++;
 
-            int len = strlen(command);
-            int bg = 0;
-            if (len > 0 && command[len - 1] == '&') {
-                bg = 1;
-                command[len - 1] = '\0';
-                while (len > 1 && command[len - 2] == ' ') {
-                    command[len - 2] = '\0';
-                    len--;
-                }
-            }
+            char *subcmds[MAX_ARGS];
+            int subcount = 0;
 
-            if (i == 0 || strcmp(ops[i - 1], ";") == 0 ||
-                (strcmp(ops[i - 1], "&&") == 0 && last_status == 0) ||
-                (strcmp(ops[i - 1], "||") == 0 && last_status != 0)) {
-                last_status = run(command, bg);
+            char *sub = strtok(command, "&");
+            while (sub && subcount < MAX_ARGS - 1) {
+                while (*sub == ' ') sub++;
+                int len = strlen(sub);
+                while (len > 0 && sub[len - 1] == ' ') sub[--len] = '\0';
+                subcmds[subcount++] = sub;
+                sub = strtok(NULL, "&");
+            }   
+
+            for (int j = 0; j<subcount;j++){
+                int bg = (j < subcount - 1);
+                if (i == 0 || strcmp(ops[i - 1], ";") == 0 || (strcmp(ops[i - 1], "&&") == 0 && last_status == 0) || (strcmp(ops[i - 1], "||") == 0 && last_status != 0))
+                last_status = run(subcmds[j], bg);
             }
 
             free(cmds[i]);
