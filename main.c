@@ -184,8 +184,7 @@ int main() {
                 int bg = (j < subcount - 1);
                 if (i == 0 || strcmp(ops[i - 1], ";") == 0 || (strcmp(ops[i - 1], "&&") == 0 && last_status == 0) || (strcmp(ops[i - 1], "||") == 0 && last_status != 0)) {
                 last_status = run(subcmds[j], bg);
-            }
-
+                }   
             }
 
             free(cmds[i]);
