@@ -178,7 +178,7 @@ int main() {
                 while (len > 0 && sub[len - 1] == ' ') sub[--len] = '\0';
                 subcmds[subcount++] = sub;
                 sub = strtok(NULL, "&");
-            }
+            }   
 
             for (int j = 0; j<subcount;j++){
                 int bg = (j < subcount - 1);
