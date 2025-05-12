@@ -8,6 +8,7 @@
 
 #define MAX_ARGS 128
 #define PATH_MAX 4096
+#define MAX_CMDS 16
 
 void print_prompt() {
     char cwd[PATH_MAX];
@@ -27,46 +28,63 @@ void parse_args(char *cmd, char **args) {
 }
 
 int pipeline(char *cmd) {
-    char *cmd1 = strtok(cmd, "|");
-    char *cmd2 = strtok(NULL, "|");
+    char *cmds[MAX_CMDS];
+    int count = 0;
 
-    if (!cmd1 || !cmd2){
+    char *token = strtok(cmd, "|");
+    while (token != NULL && count < MAX_CMDS){
+        while (*token == ' ') token++;
+        cmds[count++] = token;
+        token = strtok(NULL, "|");
+    }
+
+    if (count < 2){
         fprintf(stderr, "Invalid pipeline\n");
         return 1;
     }
-
-    while (*cmd1 == ' ') cmd1++; //공백 제거
-    while (*cmd2 == ' ') cmd2++;
-
-    char *arg1[MAX_ARGS], *arg2[MAX_ARGS];
-    parse_args(cmd1, arg1);
-    parse_args(cmd2, arg2);
-
-    int fd[2];
-    pipe(fd);
-
-    pid_t pid1 = fork();
-    if (pid1 == 0){
-        dup2(fd[1], STDIN_FILENO);
-        close(fd[0]);
-        execvp(arg1[0], arg1);
-        perror("execvp (pipe1)");
-        exit(127);
+    
+    int pipes[MAX_CMDS][2];
+    for (int i = 0; i < count - 1; i++) {
+        if (pipe(pipes[i]) < 0) {
+            perror("pipe");
+            return 1;
+        }
     }
 
+    for (int i = 0; i < count; i++) {
+        char *args[MAX_ARGS];
+        parse_args(cmds[i], args);
 
-    pid_t pid2 = fork();
-    if (pid2 == 0){
-        dup2(fd[0], STDIN_FILENO);
-        close(fd[1]);
-        execvp(arg2[0], arg2);
-        perror("execvp (pipe2)");
-        exit(127);
+        pid_t pid = fork();
+        if (pid == 0) {
+            if (i > 0) {
+                dup2(pipes[i - 1][0], STDIN_FILENO);
+            }
+
+            if (i < count - 1) {
+                dup2(pipes[i][1], STDOUT_FILENO);
+            }
+
+            for (int j = 0; j < count - 1; j++) {
+                close(pipes[j][0]);
+                close(pipes[j][1]);
+            }
+
+            execvp(args[0], args);
+            perror("execvp");
+            exit(127);
+        }
     }
 
-    close(fd[0]); close(fd[1]);
-    waitpid(pid1, NULL, 0);
-    waitpid(pid2, NULL, 0);
+    for (int i = 0; i < count - 1; i++) {
+        close(pipes[i][0]);
+        close(pipes[i][1]);
+    }
+
+    for (int i = 0; i < count; i++) {
+        wait(NULL);
+    }
+
     return 0;
 }
 
@@ -178,9 +196,9 @@ int main() {
                 while (len > 0 && sub[len - 1] == ' ') sub[--len] = '\0';
                 subcmds[subcount++] = sub;
                 sub = strtok(NULL, "&");
-            }   
+            }
 
-            for (int j = 0; j<subcount;j++){
+            for (int j = 0; j< subcount;j++){
                 int bg = (j < subcount - 1);
                 if (i == 0 || strcmp(ops[i - 1], ";") == 0 || (strcmp(ops[i - 1], "&&") == 0 && last_status == 0) || (strcmp(ops[i - 1], "||") == 0 && last_status != 0))
                 last_status = run(subcmds[j], bg);
